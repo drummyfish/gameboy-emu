@@ -16,17 +16,19 @@
 #define DISPLAY_HEIGHT    144
 #define SCREEN_XY(x,y)    x + y * DISPLAY_WIDTH
 #define DISPLAY_PIXELS    DISPLAY_WIDTH * DISPLAY_HEIGHT
-#define CPU_FREQUENCY     1050000
+#define CPU_FREQUENCY     4194304
 
 // memory map:
 
 // the memory starts with cartridge data
-#define CARTRIDGE_START   0
+#define CARTRIDGE_START     0
 
   #define INTERRUPT_START   CARTRIDGE_START
   #define INTERRUPT_SIZE    256
 
   #define ROM_DATA_START    INTERRUPT_START + INTERRUPT_SIZE
+    #define GAME_TITLE      308
+    #define GAME_TITLE_SIZE 14
   #define ROM_DATA_SIZE     79     
 
   #define PROGRAM_START     ROM_DATA_START + ROM_DATA_SIZE
@@ -63,6 +65,28 @@
 
   // various registers and flags
   #define REGISTER_START    EMPTY_START + EMPTY_SIZE
+
+    #define REG_P1          65280    /* controller register of bits 76543210, contains
+                                        the state of buttons, which form a matrix
+                                        (bits 6 and 7 are unused):
+
+                                            4       5
+                                        0  RIGHT  A
+                                        1  LEFT   B
+                                        2  UP     SELECT
+                                        3  DOWN   START */
+    #define REG_DIV         65284    /* upper 8 bits of the counter that counts the
+                                        clock frequency, if LD is executed, the bits
+                                        are cleared */
+    #define REG_TIMA        65285    /* main timer counter, generates interrupt on
+                                        overflow */
+    #define REG_TMA         65286    /* timer modulo, when TIMA overflows, this value
+                                        is loaded into TIMA */
+    #define REG_TAC         65287    /* timer control register, writing 1 to the bit
+                                        2 starts the timer, bits 0 and 1 define a
+                                        number n that defines the speed of counting as
+                                        f/(2^(2^n)) */
+
   #define REGISTER_SIZE     128
 
   // CPU work RAM and stack RAM
@@ -78,10 +102,33 @@
 unsigned char *memory;   // main memory pointer
 unsigned char *screen;   // actual screen pixels
 
+/*
+  Loads ROM from given filename into memory.
+*/
+
+int load_rom(char *filename)
+  {
+    FILE *input_file = fopen(filename,"rb");
+
+    if (!input_file)
+      {
+        printf("Error: could not open file: %s.\n",filename);
+        return 0;
+      }
+
+    fread(memory + CARTRIDGE_START,1,CARTRIDGE_SIZE,input_file); 
+
+    fclose(input_file);
+    return 1;
+  }
+
 int main()
   {
     memory = (unsigned char *) malloc(TOTAL_MEMORY_SIZE);
     screen = (unsigned char *) malloc(DISPLAY_PIXELS);
+
+    load_rom("tetris.gb");
+    printf("%s\n",(char *) memory + GAME_TITLE);
 
     gui_init();
 
