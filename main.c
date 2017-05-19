@@ -5,6 +5,7 @@
   resources:
     http://www.chrisantonellis.com/files/gameboy/gb-programming-manual.pdf
     http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf
+    http://pastraiser.com/cpu/gameboy/gameboy_opcodes.html
 */
 
 #include <stdio.h>
@@ -18,6 +19,8 @@
 #define DISPLAY_PIXELS    DISPLAY_WIDTH * DISPLAY_HEIGHT
 #define CPU_FREQUENCY     4194304
 
+//------------------------------
+
 // memory map:
 
 // the memory starts with cartridge data
@@ -29,6 +32,8 @@
   #define ROM_DATA_START    INTERRUPT_START + INTERRUPT_SIZE
     #define GAME_TITLE      308
     #define GAME_TITLE_SIZE 14
+
+    #define CARTRIDGE_TYPE  327
   #define ROM_DATA_SIZE     79     
 
   #define PROGRAM_START     ROM_DATA_START + ROM_DATA_SIZE
@@ -97,10 +102,67 @@
 
 #define TOTAL_MEMORY_SIZE   CARTRIDGE_START + VRAM_SIZE + EXTERNAL_RAM_SIZE + RAM_SIZE + PROHIBITED_SIZE + CPU_RAM_SIZE
 
+//------------------------------
+
 #include "gui.c"         // we don't need no shitty header files
+
+typedef struct           // for retrieving info about the cartridge
+  {
+    char title[GAME_TITLE_SIZE + 1];
+    int is_color;                   // whether or not the game is for GB or GBA
+    unsigned char cartridge_type;
+  } cartridge_info_struct;
+
+typedef struct
+  {
+    int instruction_type,
+    int length,             // in bytes
+    int op1_type,           
+    int op2_type,
+    int cycles
+  } instruction_struct;
+
+/* this table contains all possible instructions,
+   its index is its 2byte opcode */
+
+instruction_struct instruction_table[] =
+  {
+    
+  }
+
+typedef struct
+  {
+    // 8 8bit registers
+    unsigned char a,    // accumulator
+    unsigned char f,    // flag register
+
+    unsigned char b,
+    unsigned char c,
+
+    unsigned char d,
+    unsigned char e,
+
+    unsigned char h,    // high
+    unsigned char l,    // low
+
+    Uint16        sp,   // stack pointer
+    Uint16        pc    // program counter
+  } cpu_struct;
+
+void get_cartridge_info(cartridge_info_struct *dst)
+  {
+    char c;
+
+    memcpy(dst->title,(char *) (memory + GAME_TITLE),GAME_TITLE_SIZE);
+    dst->title[GAME_TITLE_SIZE] = 0;
+    dst->cartridge_type = ((unsigned char *) memory)[CARTRIDGE_TYPE];
+  }
 
 unsigned char *memory;   // main memory pointer
 unsigned char *screen;   // actual screen pixels
+cpu_struct cpu;          // represents the cpu
+
+cartridge_info_struct cartridge_info;
 
 /*
   Loads ROM from given filename into memory.
@@ -128,7 +190,9 @@ int main()
     screen = (unsigned char *) malloc(DISPLAY_PIXELS);
 
     load_rom("tetris.gb");
-    printf("%s\n",(char *) memory + GAME_TITLE);
+
+    get_cartridge_info(&cartridge_info);
+    printf("cartridge title: \"%s\", type: %u\n",cartridge_info.title,cartridge_info.cartridge_type);
 
     gui_init();
 
